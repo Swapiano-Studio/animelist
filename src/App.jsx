@@ -1,4 +1,3 @@
-import React from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import MainLayout from './layout/MainLayout';
 import HomePage from './components/home/HomePage';
@@ -9,6 +8,7 @@ import DetailManga from './components/manga/DetailManga';
 import PrivacyPolicy from './components/ui/PrivacyPolicy';
 import TermsOfService from './components/ui/TermsOfService';
 import NotFound from './components/ui/NotFound';
+import DetailCharacter from './components/character/DetailCharacter';
 
 const App = () => {
   return (
@@ -22,6 +22,7 @@ const App = () => {
           <Route path="manga/:id" element={<DetailManga />} />
           <Route path="privacy-policy" element={<PrivacyPolicy />} />
           <Route path="terms-of-service" element={<TermsOfService />} />
+          <Route path="character/:id" element={<DetailCharacter />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>

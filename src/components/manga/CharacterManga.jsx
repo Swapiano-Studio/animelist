@@ -1,44 +1,73 @@
 import { useState, useEffect } from "react";
 import api from "../../api";
 import Loading from "../ui/Loading";
-import CardItem from "../ui/CardItem";
+import Card from "../ui/Card";
 
 const CharacterManga = ({ id }) => {
   const [characters, setCharacters] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
     setLoading(true);
     api
       .get(`/manga/${id}/characters`)
       .then(async (res) => {
         let chars = res.data.data || [];
-        chars = chars.slice(0, 5);
-        const batchSize = 2;
-        const details = [];
-        for (let i = 0; i < chars.length; i += batchSize) {
-          const batch = chars.slice(i, i + batchSize);
-          const batchPromises = batch.map((char) =>
-            api
-              .get(`/characters/${char.character.mal_id}/full`)
-              .then((detailRes) => {
-                return {
-                  ...detailRes.data.data,
-                  role: char.role,
-                };
-              })
-              .catch(() => null)
-          );
-          const batchResults = await Promise.all(batchPromises);
-          details.push(...batchResults.filter(Boolean));
-          if (i + batchSize < chars.length) {
-            await new Promise((resolve) => setTimeout(resolve, 1000)); // 1 second delay
+        // Fetch first 5 characters immediately
+        const firstBatch = chars.slice(0, 5);
+        const restBatch = chars.slice(5);
+        // Helper for retrying fetch
+        const fetchWithRetry = async (mal_id, role, retries = 2) => {
+          for (let i = 0; i <= retries; i++) {
+            try {
+              const detailRes = await api.get(`/characters/${mal_id}/full`);
+              return { ...detailRes.data.data, role };
+            } catch (err) {
+              if (i === retries) return null;
+              await new Promise((resolve) => setTimeout(resolve, 2000)); // wait 2s before retry
+            }
+          }
+        };
+        // Fetch details for first 5
+        const firstPromises = firstBatch.map((char) =>
+          fetchWithRetry(char.character.mal_id, char.role)
+        );
+        const firstResults = (await Promise.all(firstPromises)).filter(Boolean);
+        if (isMounted) {
+          setCharacters(firstResults);
+          setLoading(false);
+        }
+        // Fetch the rest in the background, slower batches
+        if (restBatch.length > 0) {
+          const batchSize = 1; // smaller batch size
+          let details = [];
+          for (let i = 0; i < restBatch.length; i += batchSize) {
+            const batch = restBatch.slice(i, i + batchSize);
+            const batchPromises = batch.map((char) =>
+              fetchWithRetry(char.character.mal_id, char.role)
+            );
+            const batchResults = (await Promise.all(batchPromises)).filter(Boolean);
+            details = [...details, ...batchResults];
+            if (isMounted) {
+              setCharacters((prev) => [...prev, ...batchResults]);
+            }
+            if (i + batchSize < restBatch.length) {
+              await new Promise((resolve) => setTimeout(resolve, 2500)); // 2.5s delay between batches
+            }
           }
         }
-        setCharacters(details);
       })
-      .catch(() => setCharacters([]))
-      .finally(() => setLoading(false));
+      .catch(() => {
+        if (isMounted) setCharacters([]);
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+    return () => {
+      isMounted = false;
+    };
   }, [id]);
 
   if (loading) return <Loading text="Loading..." />;
@@ -46,12 +75,14 @@ const CharacterManga = ({ id }) => {
   if (!characters.length)
     return <div className="text-white p-8 text-center">No characters found.</div>;
 
+  const visibleCharacters = showAll ? characters : characters.slice(0, 5);
+
   return (
-    <div className="w-full max-w-4xl mt-4">
+    <div className="w-full max-w-5xl mt-4 text-justify">
       <h2 className="text-xl font-bold mb-2">Characters</h2>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-        {characters.map((char) => (
-          <CardItem
+        {visibleCharacters.map((char) => (
+          <Card
             key={char.mal_id}
             data={{
               mal_id: char.mal_id,
@@ -64,6 +95,16 @@ const CharacterManga = ({ id }) => {
           />
         ))}
       </div>
+      {!showAll && characters.length > 5 && (
+        <div className="flex justify-center mt-4">
+          <button
+            className="px-4 py-2 rounded bg-blue-500 text-white font-semibold hover:bg-blue-600 transition"
+            onClick={() => setShowAll(true)}
+          >
+            See More
+          </button>
+        </div>
+      )}
     </div>
   );
 };

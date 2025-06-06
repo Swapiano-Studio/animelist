@@ -8,11 +8,14 @@ import { Link } from "react-router-dom";
  * - type: 'anime' | 'manga' (untuk path link)
  * - className: tambahan styling opsional
  */
-const CardItem = ({ data, type = 'anime', className = '' }) => {
+const Card = ({ data, type = 'anime', className = '' }) => {
   if (!data) return null;
   if (type === 'character') {
     return (
-      <div className={`flex flex-col bg-[#23232b] rounded-xl shadow-lg hover:scale-105 transition w-full max-w-[200px] h-[290px] overflow-hidden ${className}`}>
+      <Link
+        to={`/character/${data.mal_id}`}
+        className={`flex flex-col bg-[#23232b] rounded-xl shadow-lg hover:scale-105 transition w-full max-w-[200px] h-[290px] overflow-hidden ${className}`}
+      >
         <img
           src={data.images?.jpg?.image_url}
           alt={data.name}
@@ -25,7 +28,7 @@ const CardItem = ({ data, type = 'anime', className = '' }) => {
           <span className="text-xs text-gray-400 truncate">{data.name_kanji}</span>
           <span className="text-xs text-gray-400 truncate">{data.role}</span>
         </div>
-      </div>
+      </Link>
     );
   }
   const linkPath = `/${type}/${data.mal_id}`;
@@ -55,4 +58,4 @@ const CardItem = ({ data, type = 'anime', className = '' }) => {
   );
 };
 
-export default CardItem;
+export default Card;
